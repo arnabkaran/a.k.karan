@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Contact Form | Dr. Arnab Kanti Karan</title>
+  <meta name="description" content="Send a comment or query to Dr. Arnab Kanti Karan.">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="navbar"><div class="container nav-container">
+    <a href="index.html" class=""></a>
+    <button class="menu-button" id="menuButton">&#9776;</button>
+    <nav id="navMenu"><a href="index.html">Home</a><a href="index.html#academic">Teaching</a><a href="index.html#experience">Research</a><a href="index.html#projects">Projects</a><a href="index.html#expertise">Skills</a><a href="index.html#gallery">Gallery</a><a href="index.html#contact">Contact</a></nav>
+  </div></header>
+  <main>
+      <section class="wallpaper-section" aria-label="Interference wallpaper">
+        <iframe class="wallpaper-frame" src="wallpaper.html" title="Animated interference wallpaper" aria-hidden="true"></iframe>
+      </section>
+    <section class="contact-form-section">
+      <div class="container">
+        <div class="query-form-wrap">
+          <h1>Send a Comment or Query</h1>
+          <form class="query-form" method="POST" action="https://formspree.io/f/YOUR_FORM_ID">
+            <div class="query-field">
+              <label for="fullname">Full Name *</label>
+              <input type="text" id="fullname" name="fullname" required />
+            </div>
+            <div class="query-field">
+              <label for="email">Email *</label>
+              <input type="email" id="email" name="email" required />
+            </div>
+            <div class="query-field">
+              <label for="country">Country *</label>
+              <input type="text" id="country" name="country" required />
+            </div>
+            <div class="query-field query-message-field">
+              <label for="message">Query or Comment *</label>
+              <textarea id="message" name="message" rows="6" required></textarea>
+            </div>
+            <button class="query-submit" type="submit">Send Message</button>
+          </form>
+          <p class="query-note">Required fields are marked with *</p>
+          <p class="query-back"><a href="index.html">&#8592; Back to Home</a></p>
+        </div>
+      </div>
+    </section>
+  </main>
+  <footer>
+    <div class="container footer-content">
+      <div>
+        <strong>Dr. Arnab Kanti Karan</strong>
+        <p>Materials Science &amp; Optoelectronic Devices</p>
+      </div>
+      <div>&copy; <span id="year"></span> Arnab Kanti Karan</div>
+    </div>
+  </footer>
+  <script>
+    document.getElementById('year').textContent = new Date().getFullYear();
+    // Mobile menu toggle
+    const menuButton = document.getElementById('menuButton');
+    const navMenu = document.getElementById('navMenu');
+    if (menuButton && navMenu) {
+      menuButton.addEventListener('click', () => {
+        navMenu.classList.toggle('open');
+        menuButton.setAttribute('aria-expanded', String(navMenu.classList.contains('open')));
+      });
+      navMenu.querySelectorAll('a').forEach(a => a.addEventListener('click', () => navMenu.classList.remove('open')));
+    }
+  </script>
+</body>
+</html>

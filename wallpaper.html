@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Gravity Well — Live Wallpaper</title>
+<style>
+  :root{
+    --bg-deep:#020207;
+    --bg-mid:#070512;
+    --neb-violet:#3a1a5c;
+    --neb-teal:#0f3d4a;
+  }
+  html,body{
+    margin:0; padding:0;
+    width:100%; height:100%;
+    background:var(--bg-deep);
+    overflow:hidden;
+  }
+  .scene{
+    position:relative;
+    width:100vw; height:100vh;
+    background:radial-gradient(ellipse at 50% 50%, var(--bg-mid) 0%, var(--bg-deep) 65%);
+  }
+  .nebula{
+    position:absolute;
+    border-radius:50%;
+    filter:blur(60px);
+    opacity:0.18;
+    mix-blend-mode:screen;
+  }
+  .neb1{ width:40vw; height:26vw; top:6%; left:-8%; background:var(--neb-violet); }
+  .neb2{ width:34vw; height:22vw; bottom:4%; right:-6%; background:var(--neb-teal); }
+  canvas{ position:absolute; inset:0; width:100%; height:100%; }
+</style>
+</head>
+<body>
+<div class="scene">
+  <div class="nebula neb1"></div>
+  <div class="nebula neb2"></div>
+  <canvas id="stars"></canvas>
+  <canvas id="scene"></canvas>
+</div>
+
+<script>
+(function(){
+  const starCanvas = document.getElementById('stars');
+  const sctx = starCanvas.getContext('2d');
+  const mainCanvas = document.getElementById('scene');
+  const ctx = mainCanvas.getContext('2d');
+
+  let W, H, cx, cy, holeR, ringR, diskInner, diskOuter, tilt;
+  let stars = [];
+  let systems = [];
+
+  function rand(a,b){ return a + Math.random()*(b-a); }
+
+  function layout(){
+    W = starCanvas.width = mainCanvas.width = window.innerWidth;
+    H = starCanvas.height = mainCanvas.height = window.innerHeight;
+    cx = W/2; cy = H/2;
+    holeR = Math.min(W,H) * 0.075;
+    ringR = holeR * 1.18;
+    diskInner = holeR * 1.7;
+    diskOuter = holeR * 5.2;
+    tilt = 0.34;
+
+    // starfield
+    stars = [];
+    const count = Math.floor((W*H)/3800);
+    for(let i=0;i<count;i++){
+      stars.push({
+        x: Math.random()*W,
+        y: Math.random()*H,
+        r: Math.random()*1.2 + 0.25,
+        base: Math.random()*0.5 + 0.25,
+        speed: Math.random()*0.02 + 0.004,
+        phase: Math.random()*Math.PI*2
+      });
+    }
+
+    // orbiting solar systems circulating the black hole
+    systems = [];
+    const sysCount = 7;
+    const minOrbit = diskOuter * 1.35;
+    const maxOrbit = Math.min(W,H) * 0.47;
+    for(let i=0;i<sysCount;i++){
+      const orbitR = rand(minOrbit, maxOrbit) * (0.55 + (i/sysCount)*0.9);
+      const dir = Math.random() < 0.5 ? 1 : -1;
+      // roughly Keplerian: closer orbits move faster
+      const angularSpeed = dir * (0.9 / Math.pow(orbitR/minOrbit, 1.5)) * 0.18;
+      const hue = [ '255,214,150', '160,210,255', '255,180,190', '200,255,220', '255,240,200' ][i % 5];
+      const planetCount = Math.floor(rand(1,4));
+      const planets = [];
+      for(let p=0;p<planetCount;p++){
+        planets.push({
+          dist: rand(10, 26) + p*10,
+          speed: rand(1.2, 2.6) * (Math.random()<0.5?1:-1),
+          size: rand(1.1, 2.4),
+          angle0: rand(0, Math.PI*2),
+          color: `rgba(220,230,255,ALPHA)`
+        });
+      }
+      systems.push({
+        orbitR, angularSpeed,
+        angle0: rand(0, Math.PI*2),
+        starSize: rand(2.2, 4.2),
+        color: hue,
+        planets,
+        trail: []
+      });
+    }
+  }
+
+  function drawStars(t){
+    sctx.clearRect(0,0,W,H);
+    for(const s of stars){
+      const a = s.base + Math.sin(t*s.speed*40 + s.phase)*0.28;
+      sctx.beginPath();
+      sctx.arc(s.x, s.y, s.r, 0, Math.PI*2);
+      sctx.fillStyle = `rgba(255,255,255,${Math.max(0,Math.min(1,a))})`;
+      sctx.fill();
+    }
+  }
+
+  function drawDisk(t){
+    // base elliptical glow (scaled space => appears as ellipse)
+    const grad = ctx.createRadialGradient(0,0,diskInner*0.5, 0,0,diskOuter);
+    grad.addColorStop(0.0, 'rgba(255,250,235,0.95)');
+    grad.addColorStop(0.18, 'rgba(255,205,120,0.75)');
+    grad.addColorStop(0.42, 'rgba(255,120,60,0.42)');
+    grad.addColorStop(0.75, 'rgba(200,50,40,0.14)');
+    grad.addColorStop(1.0, 'rgba(120,20,30,0)');
+    ctx.beginPath();
+    ctx.arc(0,0, diskOuter, 0, Math.PI*2);
+    ctx.fillStyle = grad;
+    ctx.fill();
+
+    // punch out the very center so the disk doesn't look solid near the core
+    ctx.save();
+    ctx.globalCompositeOperation = 'destination-out';
+    ctx.beginPath();
+    ctx.arc(0,0, diskInner*0.55, 0, Math.PI*2);
+    const holeGrad = ctx.createRadialGradient(0,0,0,0,0,diskInner*0.55);
+    holeGrad.addColorStop(0,'rgba(0,0,0,0.9)');
+    holeGrad.addColorStop(1,'rgba(0,0,0,0)');
+    ctx.fillStyle = holeGrad;
+    ctx.fill();
+    ctx.restore();
+
+    // relativistic-beaming style brightness asymmetry (approaching side brighter)
+    ctx.save();
+    ctx.globalCompositeOperation = 'source-atop';
+    const beam = ctx.createLinearGradient(-diskOuter,0, diskOuter,0);
+    beam.addColorStop(0, 'rgba(255,255,255,0.28)');
+    beam.addColorStop(0.5, 'rgba(255,255,255,0)');
+    beam.addColorStop(1, 'rgba(0,0,0,0.30)');
+    ctx.beginPath();
+    ctx.arc(0,0, diskOuter, 0, Math.PI*2);
+    ctx.fillStyle = beam;
+    ctx.fill();
+    ctx.restore();
+
+    // swirling turbulence streaks
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    const streaks = 46;
+    for(let i=0;i<streaks;i++){
+      const rr = diskInner + (i/streaks)*(diskOuter-diskInner);
+      const a0 = (i*137.5 + t*(26 - i*0.25)) * Math.PI/180;
+      const len = 0.35 + (i%5)*0.05;
+      const alpha = 0.10 * (1 - (rr-diskInner)/(diskOuter-diskInner));
+      ctx.beginPath();
+      ctx.arc(0,0, rr, a0, a0+len);
+      ctx.strokeStyle = `rgba(255,${200-i}, ${120-Math.min(i,100)}, ${Math.max(0,alpha)})`;
+      ctx.lineWidth = 1.4;
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  function drawHole(){
+    // soft outer glow
+    const glow = ctx.createRadialGradient(cx,cy,holeR*0.9, cx,cy,holeR*3.2);
+    glow.addColorStop(0,'rgba(255,200,140,0.28)');
+    glow.addColorStop(1,'rgba(255,200,140,0)');
+    ctx.beginPath();
+    ctx.arc(cx,cy, holeR*3.2, 0, Math.PI*2);
+    ctx.fillStyle = glow;
+    ctx.fill();
+
+    // photon ring
+    ctx.beginPath();
+    ctx.arc(cx,cy, ringR, 0, Math.PI*2);
+    ctx.strokeStyle = 'rgba(255,240,220,0.85)';
+    ctx.lineWidth = Math.max(1.5, holeR*0.05);
+    ctx.shadowColor = 'rgba(255,220,180,0.9)';
+    ctx.shadowBlur = holeR*0.5;
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+
+    // event horizon (pure black sphere)
+    ctx.beginPath();
+    ctx.arc(cx,cy, holeR, 0, Math.PI*2);
+    ctx.fillStyle = '#000000';
+    ctx.fill();
+  }
+
+  function drawSystem(sys, t, dimBehind){
+    const angle = sys.angle0 + t*sys.angularSpeed;
+    const x = sys.orbitR*Math.cos(angle);
+    const y = sys.orbitR*Math.sin(angle);
+    const alphaMul = dimBehind ? 0.55 : 1;
+
+    // faint orbit path
+    ctx.beginPath();
+    ctx.arc(0,0, sys.orbitR, 0, Math.PI*2);
+    ctx.strokeStyle = `rgba(180,200,255,${0.05*alphaMul})`;
+    ctx.lineWidth = 1;
+    ctx.stroke();
+
+    // host star glow
+    ctx.beginPath();
+    ctx.arc(x,y, sys.starSize*2.6, 0, Math.PI*2);
+    ctx.fillStyle = `rgba(${sys.color},${0.18*alphaMul})`;
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(x,y, sys.starSize, 0, Math.PI*2);
+    ctx.fillStyle = `rgba(${sys.color},${0.95*alphaMul})`;
+    ctx.fill();
+
+    // planets
+    for(const p of sys.planets){
+      const pa = p.angle0 + t*p.speed;
+      const px = x + p.dist*Math.cos(pa);
+      const py = y + p.dist*Math.sin(pa)*0.9;
+      ctx.beginPath();
+      ctx.arc(x,y, p.dist, 0, Math.PI*2);
+      ctx.strokeStyle = `rgba(200,210,255,${0.05*alphaMul})`;
+      ctx.lineWidth = 0.6;
+      ctx.stroke();
+
+      ctx.beginPath();
+      ctx.arc(px,py, p.size, 0, Math.PI*2);
+      ctx.fillStyle = p.color.replace('ALPHA', (0.85*alphaMul).toFixed(2));
+      ctx.fill();
+    }
+  }
+
+  let last = performance.now();
+  function frame(now){
+    const t = now/1000;
+    drawStars(t);
+    ctx.clearRect(0,0,W,H);
+
+    // split systems by depth (behind vs in front of the hole)
+    const behind = [], front = [];
+    for(const sys of systems){
+      const angle = sys.angle0 + t*sys.angularSpeed;
+      (Math.sin(angle) < 0 ? behind : front).push(sys);
+    }
+
+    // BEHIND pass: disk + far-side systems, in tilted/scaled space
+    ctx.save();
+    ctx.translate(cx,cy);
+    ctx.scale(1, tilt);
+    drawDisk(t);
+    for(const sys of behind) drawSystem(sys, t, true);
+    ctx.restore();
+
+    // the black hole itself is a true sphere — drawn unscaled
+    drawHole();
+
+    // FRONT pass: near-side systems pass in front of the hole
+    ctx.save();
+    ctx.translate(cx,cy);
+    ctx.scale(1, tilt);
+    for(const sys of front) drawSystem(sys, t, false);
+    ctx.restore();
+
+    requestAnimationFrame(frame);
+  }
+
+  window.addEventListener('resize', layout);
+  layout();
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>
